@@ -14,6 +14,7 @@ from db import get_db, close_db
 from logger_config import setup_logging
 from errors import register_error_handlers, ApiError
 from utils import MongoJSONProvider
+from prometheus_flask_exporter import PrometheusMetrics
 
 
 setup_logging()
@@ -25,6 +26,8 @@ app.json = app.json_provider_class(app)
 
 register_error_handlers(app)
 log = structlog.get_logger()
+
+metrics = PrometheusMetrics(app)
 
 SWAGGER_URL = '/docs'
 API_URL = '/static/customer_service_openapi.yaml'

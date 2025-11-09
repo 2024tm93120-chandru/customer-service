@@ -4,3 +4,4 @@ python-dotenv
 gunicorn
 structlog
 flask-swagger-ui
+prometheus-flask-exporter

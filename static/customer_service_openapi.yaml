@@ -4,12 +4,55 @@ info:
   description: Manages customer profiles and their embedded addresses.
   version: "1.0.0"
 servers:
-  - url: /v1
-    description: API Version 1
+  - url: /
+    description: API Root
 paths:
-  /customers:
+  # --- Monitoring Endpoints ---
+  /healthz:
+    get:
+      summary: Health Check
+      description: A simple health probe (for Kubernetes liveness/readiness).
+      tags:
+        - Monitoring
+      responses:
+        '200':
+          description: Service is healthy
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: "ok"
+                  service:
+                    type: string
+                    example: "customer-service"
+  /metrics:
+    get:
+      summary: Prometheus Metrics
+      description: Exposes application metrics in Prometheus format.
+      tags:
+        - Monitoring
+      responses:
+        '200':
+          description: Prometheus metrics
+          content:
+            text/plain:
+              schema:
+                type: string
+                example: |
+                  # HELP flask_http_requests_latency_seconds Request latency
+                  # TYPE flask_http_requests_latency_seconds histogram
+                  flask_http_requests_latency_seconds_bucket{...} 0.005
+                  # ... (etc)
+
+  # --- Customer Endpoints ---
+  /v1/customers:
     post:
       summary: Create a new customer
+      tags:
+        - Customers
       requestBody:
         required: true
         content:
@@ -29,6 +72,8 @@ paths:
           description: Conflict (email or phone already exists)
     get:
       summary: List all customers
+      tags:
+        - Customers
       parameters:
         - in: query
           name: page
@@ -63,9 +108,11 @@ paths:
                     type: array
                     items:
                       $ref: '#/components/schemas/Customer'
-  /customers/{customerId}:
+  /v1/customers/{customerId}:
     get:
       summary: Get a single customer by ID
+      tags:
+        - Customers
       parameters:
         - in: path
           name: customerId
@@ -85,9 +132,13 @@ paths:
           description: Invalid customer_id format
         '404':
           description: Customer not found
-  /customers/{customerId}/addresses:
+
+  # --- Address Endpoints ---
+  /v1/customers/{customerId}/addresses:
     post:
       summary: Add a new address for a customer
+      tags:
+        - Addresses
       parameters:
         - in: path
           name: customerId
@@ -113,6 +164,8 @@ paths:
           description: Customer not found
     get:
       summary: List all addresses for a customer
+      tags:
+        - Addresses
       parameters:
         - in: path
           name: customerId
@@ -130,9 +183,11 @@ paths:
                 type: array
                 items:
                   $ref: '#/components/schemas/Address'
-  /addresses/{addressId}:
+  /v1/addresses/{addressId}:
     get:
       summary: Get a single address by ID (for inter-service calls)
+      tags:
+        - Addresses
       parameters:
         - in: path
           name: addressId
