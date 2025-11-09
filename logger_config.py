@@ -3,13 +3,53 @@ import sys
 import structlog
 from flask import request
 import os
+from enum import IntEnum
+
 
 from opentelemetry.sdk._logs import LoggerProvider, LogRecord
 from opentelemetry.sdk._logs.export import BatchLogRecordProcessor
 from opentelemetry.exporter.otlp.proto.http._log_exporter import OTLPLogExporter
 from opentelemetry.sdk.resources import Resource
+from opentelemetry.trace import TraceFlags, INVALID_SPAN_CONTEXT
+
+
+class SeverityNumber(IntEnum):
+    UNSPECIFIED = 0
+    TRACE = 1
+    TRACE2 = 2
+    TRACE3 = 3
+    TRACE4 = 4
+    DEBUG = 5
+    DEBUG2 = 6
+    DEBUG3 = 7
+    DEBUG4 = 8
+    INFO = 9
+    INFO2 = 10
+    INFO3 = 11
+    INFO4 = 12
+    WARN = 13
+    WARN2 = 14
+    WARN3 = 15
+    WARN4 = 16
+    ERROR = 17
+    ERROR2 = 18
+    ERROR3 = 19
+    ERROR4 = 20
+    FATAL = 21
+    FATAL2 = 22
+    FATAL3 = 23
+    FATAL4 = 24
+
 
 PII_FIELDS = {'email', 'phone', 'line1'}
+SEVERITY_NUMBER_MAP = {
+    logging.CRITICAL: SeverityNumber.FATAL,
+    logging.ERROR: SeverityNumber.ERROR,
+    logging.WARNING: SeverityNumber.WARN,
+    logging.INFO: SeverityNumber.INFO,
+    logging.DEBUG: SeverityNumber.DEBUG,
+    logging.NOTSET: SeverityNumber.UNSPECIFIED,
+}
 
 
 def mask_pii_processor(logger, log_method_name, event_dict):
@@ -39,23 +79,30 @@ class OTLPHandler(logging.Handler):
 
     def emit(self, record):
         try:
-            # Create an OpenTelemetry LogRecord
+            # get OpenTelemetry span context if available
+            ctx = INVALID_SPAN_CONTEXT
+            trace_id = ctx.trace_id
+            span_id = ctx.span_id
+            trace_flags = ctx.trace_flags
+
+            severity_number = SEVERITY_NUMBER_MAP.get(record.levelno, SeverityNumber.UNSPECIFIED)
             log_record = LogRecord(
                 timestamp=int(record.created * 1e9),
                 observed_timestamp=int(record.created * 1e9),
-                trace_id=0,
-                span_id=0,
-                trace_flags=0,
+                trace_id=trace_id,
+                span_id=span_id,
+                trace_flags=trace_flags,
                 severity_text=record.levelname,
-                severity_number=record.levelno,
+                severity_number=severity_number,
                 body=self.format(record),
                 resource=self._logger_provider.resource,
                 attributes={"logger.name": record.name},
             )
-            # Emit through provider
-            self._logger_provider.emit(log_record)
+
+            self._otel_logger.emit(log_record)
         except Exception:
             self.handleError(record)
+
 
 
 def setup_logging(log_level="INFO"):
