@@ -6,6 +6,7 @@ from datetime import datetime
 from bson import ObjectId
 from bson.errors import InvalidId
 from pymongo.errors import DuplicateKeyError
+from flask_swagger_ui import get_swaggerui_blueprint
 
 load_dotenv()
 
@@ -25,6 +26,17 @@ app.json = app.json_provider_class(app)
 register_error_handlers(app)
 log = structlog.get_logger()
 
+SWAGGER_URL = '/docs'
+API_URL = '/static/customer_service_openapi.yaml'
+
+swaggerui_blueprint = get_swaggerui_blueprint(
+    SWAGGER_URL,
+    API_URL,
+    config={
+        'app_name': "Customer Service API Docs"
+    }
+)
+app.register_blueprint(swaggerui_blueprint, url_prefix=SWAGGER_URL)
 
 @app.before_request
 def before_request():

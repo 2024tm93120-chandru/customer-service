@@ -1,0 +1,213 @@
+openapi: 3.0.0
+info:
+  title: Customer Service API
+  description: Manages customer profiles and their embedded addresses.
+  version: "1.0.0"
+servers:
+  - url: /v1
+    description: API Version 1
+paths:
+  /customers:
+    post:
+      summary: Create a new customer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CustomerInput'
+      responses:
+        '201':
+          description: Customer created successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Customer'
+        '400':
+          description: Bad request (e.g., missing fields)
+        '409':
+          description: Conflict (email or phone already exists)
+    get:
+      summary: List all customers
+      parameters:
+        - in: query
+          name: page
+          schema:
+            type: integer
+            default: 1
+          description: Page number for pagination
+        - in: query
+          name: limit
+          schema:
+            type: integer
+            default: 20
+          description: Number of items per page
+        - in: query
+          name: email
+          schema:
+            type: string
+          description: Filter customers by email
+      responses:
+        '200':
+          description: A paginated list of customers
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  page:
+                    type: integer
+                  limit:
+                    type: integer
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Customer'
+  /customers/{customerId}:
+    get:
+      summary: Get a single customer by ID
+      parameters:
+        - in: path
+          name: customerId
+          required: true
+          schema:
+            type: string
+            format: ObjectId
+          description: The BSON ObjectId of the customer
+      responses:
+        '200':
+          description: Customer details
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Customer'
+        '400':
+          description: Invalid customer_id format
+        '404':
+          description: Customer not found
+  /customers/{customerId}/addresses:
+    post:
+      summary: Add a new address for a customer
+      parameters:
+        - in: path
+          name: customerId
+          required: true
+          schema:
+            type: string
+            format: ObjectId
+          description: The BSON ObjectId of the customer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AddressInput'
+      responses:
+        '201':
+          description: Address created successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Address'
+        '404':
+          description: Customer not found
+    get:
+      summary: List all addresses for a customer
+      parameters:
+        - in: path
+          name: customerId
+          required: true
+          schema:
+            type: string
+            format: ObjectId
+          description: The BSON ObjectId of the customer
+      responses:
+        '200':
+          description: A list of addresses
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Address'
+  /addresses/{addressId}:
+    get:
+      summary: Get a single address by ID (for inter-service calls)
+      parameters:
+        - in: path
+          name: addressId
+          required: true
+          schema:
+            type: string
+            format: ObjectId
+          description: The BSON ObjectId of the embedded address
+      responses:
+        '200':
+          description: Address details
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Address'
+        '404':
+          description: Address not found
+
+components:
+  schemas:
+    CustomerInput:
+      type: object
+      required: [name, email, phone]
+      properties:
+        name:
+          type: string
+          example: "John Doe"
+        email:
+          type: string
+          format: email
+          example: "john.doe@example.com"
+        phone:
+          type: string
+          example: "+15551234567"
+    Customer:
+      allOf:
+        - $ref: '#/components/schemas/CustomerInput'
+        - type: object
+          properties:
+            _id:
+              type: string
+              format: ObjectId
+              example: "60d5ec4b1a4a4b4c8c8d8d8d"
+            created_at:
+              type: string
+              format: date-time
+            addresses:
+              type: array
+              items:
+                $ref: '#/components/schemas/Address'
+    AddressInput:
+      type: object
+      required: [line1, city, pincode]
+      properties:
+        line1:
+          type: string
+          example: "123 Main St"
+        area:
+          type: string
+          example: "Downtown"
+        city:
+          type: string
+          example: "Anytown"
+        pincode:
+          type: string
+          example: "12345"
+    Address:
+      allOf:
+        - $ref: '#/components/schemas/AddressInput'
+        - type: object
+          properties:
+            _id:
+              type: string
+              format: ObjectId
+              example: "60d5ec4b1a4a4b4c8c8d8d8e"
+            created_at:
+              type: string
+              format: date-time
