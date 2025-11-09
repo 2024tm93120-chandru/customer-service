@@ -3,26 +3,56 @@ version: '3.8'
 services:
   # The Python Customer Service
   customer-service:
-    build: .  # Looks for the Dockerfile in the current folder
+    build: .
     ports:
       - "8081:8081"
     environment:
-      # This is the key: it uses the service name "customer-db"
-      # as the hostname to connect to MongoDB.
       - MONGO_URI=mongodb://customer-db:27017/
       - DB_NAME=customer_db
       - FLASK_ENV=production
+      - LOKI_URL=http://loki:3100/loki/api/v1/push
     depends_on:
       - customer-db
+      - loki
 
   # The MongoDB Database
   customer-db:
     image: mongo:latest
     ports:
-      - "27017:27017" # Map host port 27017 (for debugging with Mongo Compass)
+      - "27017:27017"
     volumes:
-      - customer_mongo_data:/data/db # Persist data
+      - customer_mongo_data:/data/db
+
+  # Loki Service
+  loki:
+    image: grafana/loki:latest
+    ports:
+      - "3100:3100"
+    command: -config.file=/etc/loki/local-config.yaml
+    volumes:
+      - loki_data:/loki
+
+  # --- NEW: Prometheus Service ---
+  prometheus:
+    image: prom/prometheus:latest
+    ports:
+      - "9090:9090" # Access Prometheus at http://localhost:9090
+    volumes:
+      # Mount the config file we just created
+      - ./prometheus.yml:/etc/prometheus/prometheus.yml
+      - prometheus_data:/prometheus
+    command: --config.file=/etc/prometheus/prometheus.yml
+
+  # Grafana Service
+  grafana:
+    image: grafana/grafana:latest
+    ports:
+      - "3000:3000" # Access Grafana at http://localhost:3000
+    depends_on:
+      - loki
+      - prometheus
 
 volumes:
-  # Defines the persistent volume for the database
   customer_mongo_data:
+  loki_data:
+  prometheus_data:  # <-- Add this volume

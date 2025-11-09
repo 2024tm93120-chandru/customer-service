@@ -1,0 +1,10 @@
+# prometheus.yml
+global:
+  scrape_interval: 15s # Scrape metrics every 15 seconds
+
+scrape_configs:
+  - job_name: 'customer-service'
+    # This tells Prometheus to find your service using Docker's
+    # internal DNS name ("customer-service") and the port (8081).
+    static_configs:
+      - targets: ['customer-service:8081']
