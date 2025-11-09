@@ -1,0 +1,129 @@
+# --- 1. PersistentVolumeClaim (PVC) ---
+# This asks Minikube for 1GB of persistent storage for the database.
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: mongo-pvc
+spec:
+  accessModes:
+    - ReadWriteOnce # Can only be used by one pod at a time
+  resources:
+    requests:
+      storage: 1Gi
+
+---
+# --- 2. MongoDB Deployment ---
+# This defines how to run the MongoDB container.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: mongo-deployment
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: mongo
+  template:
+    metadata:
+      labels:
+        app: mongo
+    spec:
+      containers:
+        - name: mongo
+          image: mongo:latest
+          ports:
+            - containerPort: 27017
+          volumeMounts:
+            - name: mongo-storage
+              mountPath: /data/db
+      volumes:
+        - name: mongo-storage
+          persistentVolumeClaim:
+            claimName: mongo-pvc
+
+---
+# --- 3. MongoDB Service ---
+# This gives the MongoDB pod a stable internal network name: "customer-db-service"
+apiVersion: v1
+kind: Service
+metadata:
+  name: customer-db-service
+spec:
+  type: ClusterIP # Only reachable inside the cluster
+  selector:
+    app: mongo
+  ports:
+    - protocol: TCP
+      port: 27017
+      targetPort: 27017
+
+---
+# --- 4. Customer App ConfigMap ---
+# This stores the environment variables for your Python app.
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: customer-app-config
+data:
+  # Your app will connect to the DB using this internal service name
+  MONGO_URI: "mongodb://customer-db-service:27017/"
+  DB_NAME: "customer_db"
+  FLASK_ENV: "production"
+
+---
+# --- 5. Customer App Deployment ---
+# This defines how to run your Python service.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: customer-app-deployment
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: customer-app
+  template:
+    metadata:
+      labels:
+        app: customer-app
+    spec:
+      containers:
+        - name: customer-service
+          image: customer-service:latest # The image you will build
+          imagePullPolicy: IfNotPresent # Tells K8s to use the local image
+          ports:
+            - containerPort: 8081
+          envFrom:
+            - configMapRef:
+                name: customer-app-config # Loads all variables from the ConfigMap
+
+          # Liveness and Readiness Probes (as required by your assignment)
+          readinessProbe:
+            httpGet:
+              path: /healthz
+              port: 8081
+            initialDelaySeconds: 10
+            periodSeconds: 5
+          livenessProbe:
+            httpGet:
+              path: /healthz
+              port: 8081
+            initialDelaySeconds: 20
+            periodSeconds: 10
+
+---
+# --- 6. Customer App Service ---
+# This exposes your Python app to the outside world for testing.
+apiVersion: v1
+kind: Service
+metadata:
+  name: customer-service
+spec:
+  type: NodePort # Exposes the service on a port on your computer
+  selector:
+    app: customer-app
+  ports:
+    - protocol: TCP
+      port: 8081       # Internal port for other K8s services
+      targetPort: 8081  # Port on the container
+      # NodePort: 30001 (This is an example, K8s will pick one)

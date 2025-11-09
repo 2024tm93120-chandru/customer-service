@@ -1,0 +1,28 @@
+version: '3.8'
+
+services:
+  # The Python Customer Service
+  customer-service:
+    build: .  # Looks for the Dockerfile in the current folder
+    ports:
+      - "8081:8081"
+    environment:
+      # This is the key: it uses the service name "customer-db"
+      # as the hostname to connect to MongoDB.
+      - MONGO_URI=mongodb://customer-db:27017/
+      - DB_NAME=customer_db
+      - FLASK_ENV=production
+    depends_on:
+      - customer-db
+
+  # The MongoDB Database
+  customer-db:
+    image: mongo:latest
+    ports:
+      - "27017:27017" # Map host port 27017 (for debugging with Mongo Compass)
+    volumes:
+      - customer_mongo_data:/data/db # Persist data
+
+volumes:
+  # Defines the persistent volume for the database
+  customer_mongo_data:
